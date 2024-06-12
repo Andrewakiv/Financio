@@ -1,7 +1,10 @@
 import jwt
 from django.conf import settings
+from django.contrib.auth import authenticate, login
 from django.contrib.sites.shortcuts import get_current_site
+from django.middleware import csrf
 from rest_framework.permissions import AllowAny
+from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -18,6 +21,32 @@ from users.utils import Util
 
 class TokenObtainPairView(BaseTokenObtainPairView):
     throttle_scope = 'token_obtain'
+
+    def post(self, request: Request, *args, **kwargs) -> Response:
+        data = request.data
+        response = Response()
+        email = data.get('email', None)
+        password = data.get('password', None)
+        user = authenticate(email=email, password=password)
+
+        if user is not None:
+            if user.is_active:
+                data = Util.get_tokens_for_user(user)
+                response.set_cookie(
+                    key=settings.SIMPLE_JWT['AUTH_COOKIE'],
+                    value=data["access"],
+                    expires=settings.SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'],
+                    secure=settings.SIMPLE_JWT['AUTH_COOKIE_SECURE'],
+                    httponly=settings.SIMPLE_JWT['AUTH_COOKIE_HTTP_ONLY'],
+                    samesite=settings.SIMPLE_JWT['AUTH_COOKIE_SAMESITE']
+                )
+                csrf.get_token(request)
+                response.data = {"Success": "Login successfully", "data": data}
+                return response
+            else:
+                return Response({"No active": "This account is not active!!"}, status=status.HTTP_404_NOT_FOUND)
+        else:
+            return Response({"Invalid": "Invalid username or password!!"}, status=status.HTTP_404_NOT_FOUND)
 
 
 class TokenRefreshView(BaseTokenRefreshView):

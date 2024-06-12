@@ -3,6 +3,7 @@ import logging
 from django.conf import settings
 from django.core.mail import EmailMessage
 from rest_framework.reverse import reverse
+from rest_framework_simplejwt.tokens import RefreshToken
 
 logger = logging.getLogger('django.server')
 
@@ -45,3 +46,11 @@ SS
             email.send()
         except Exception as e:
             logging.error(f"Failed to send email to {user.email}: {str(e)}")
+
+    @staticmethod
+    def get_tokens_for_user(user):
+        refresh = RefreshToken.for_user(user)
+        return {
+            'refresh': str(refresh),
+            'access': str(refresh.access_token),
+        }
